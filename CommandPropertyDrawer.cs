@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEditor;
+using UnityEditorInternal;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -7,10 +8,51 @@ using System.Reflection;
 
 namespace Invocation {
 
-
     [CustomPropertyDrawer(typeof(Command))]
     public class CommandPropertyDrawer : PropertyDrawer
     {
+
+        /**
+         * Helper function to track instance a GUI field (f), using the
+         * specified value property (eg. stringValue, intValue etc). Internally
+         * the values are stored in an array of type T so we return a lambda
+         * that tracks the current index we are up to each time it's called.
+         * 
+         * @see Command for list of argument properties (stringArgs, intArgs
+         * etc)
+         *
+         * @param SerializedProperty args this is the field for the current
+         * arguments array we are considering (eg. stringArgs)
+         * @param string propertyName the property that contains the value (eg.
+         * stringValue, intValue, colorValue etc)
+         * @param Func<Rect, T, T> f a function that creates a field, eg
+         * EditorGUI.TextField 
+         *
+         */
+        static Func<Rect, string, SerializedProperty> ArgEditField<T>(SerializedProperty args, string propertyName, Func<Rect, string, T, T> f)
+        {
+            int index = 0;
+            return (Rect pos, string label) => {
+                if (index <= args.arraySize) {
+                    args.InsertArrayElementAtIndex(index);
+                }
+                var arg = args.GetArrayElementAtIndex(index);
+                index++;
+
+                EditorGUI.BeginChangeCheck ();
+                var field = arg.GetType().GetProperty(propertyName);
+                if (null == field) {
+                    throw new NullReferenceException("Field "+propertyName+" not found on property");
+                }
+                T value = f(pos, label, (T)field.GetValue(arg, null));
+                if (EditorGUI.EndChangeCheck ()){
+                    field.SetValue(arg, value, null);
+                }
+
+                return arg;
+            };
+        }
+
 
         private GameObject getTarget(SerializedProperty property) 
         {
@@ -64,30 +106,6 @@ namespace Invocation {
             targetProp.objectReferenceValue = EditorGUI.ObjectField(
                     makeLabel("Target"), target, typeof(GameObject), true);
 
-            if (selectedMethod != null) {
-                // Now we add edit fields for all parameters of selected method
-                var parameters = selectedMethod.GetParameters();
-                int objRefParamCount = 0, otherParamCount = 0;
-                foreach (var param in parameters) {
-
-                    var valueRect = makeLabel(ObjectNames.NicifyVariableName(param.Name));
-                    if (param.ParameterType.IsSubclassOf(typeof(UnityEngine.Object))) {
-                        var argumentProperty = property.FindPropertyRelative("objref_arg_"+(++objRefParamCount));
-                        argumentProperty.objectReferenceValue = EditorGUI.ObjectField(valueRect, null, param.ParameterType, true);
-                    } else {
-                        var argumentProperty = property.FindPropertyRelative("value_arg_"+otherParamCount);
-                        EditorGUI.BeginChangeCheck ();
-                        string value = EditorGUI.TextField(valueRect, argumentProperty.stringValue);
-                        if (EditorGUI.EndChangeCheck ()){
-                            argumentProperty.stringValue = value;
-                        }
-                    }
-
-                }
-            }
-
-
-
             var components = target.GetComponents<MonoBehaviour>();
             var methodNames = new List<string>();
             var names = new List<string>();
@@ -115,7 +133,50 @@ namespace Invocation {
                 methodProp.stringValue = methodNames[index];
             }
 
+            if (selectedMethod != null) {
+                // Now we add edit fields for all parameters of selected method
+                var parameters = selectedMethod.GetParameters();
+                int objRefParamCount = 0, otherParamCount = 0;
+                SerializedProperty stringArgs = property.FindPropertyRelative("stringArgs"),
+                                   intArgs = property.FindPropertyRelative("intArgs"),
+                                   colorArgs = property.FindPropertyRelative("colorArgs"),
+                                   vector2Args = property.FindPropertyRelative("vector2Args");
+                var stringArgField = ArgEditField<string>(stringArgs, "stringValue", EditorGUI.TextField);
+                var colorArgField = ArgEditField<Color>(colorArgs, "colorValue", EditorGUI.ColorField);
+                var intArgField = ArgEditField<int>(intArgs, "intValue", EditorGUI.IntField);
+                var vector2ArgField = ArgEditField<Vector2>(vector2Args, "vector2Value", EditorGUI.Vector2Field);
+
+                foreach (var param in parameters) {
+
+                    //var valueRect = makeLabel(ObjectNames.NicifyVariableName(param.Name));
+                    var valueRect = new Rect(position.x, position.y + position.height/controlCount * lineNumber++, position.width, position.height / controlCount) ;
+                    var paramName = ObjectNames.NicifyVariableName(param.Name);
+                    if (param.ParameterType.IsSubclassOf(typeof(UnityEngine.Object))) {
+                        var argumentProperty = property.FindPropertyRelative(
+                                "objref_arg_"+(++objRefParamCount));
+                        argumentProperty.objectReferenceValue = EditorGUI.ObjectField(
+                                valueRect, argumentProperty.objectReferenceValue, 
+                                param.ParameterType, true);
+                    } else {
+                        var paramType = param.ParameterType;
+                        if (paramType == typeof(string)) {
+                            stringArgField(valueRect, paramName);
+                        } else if (paramType == typeof(Color)) {
+                            colorArgField(valueRect, paramName);
+                        } else if (paramType == typeof(System.Int32)) {
+                            intArgField(valueRect, paramName);
+                        } else if (paramType == typeof(Vector2)) {
+                            vector2ArgField(valueRect, paramName);
+                        } else {
+                            Debug.LogError("Method "+selectedMethod.Name + " not supported due to parameter type " + paramType.Name);
+                        }
+                    }
+
+                }
+            }
+
             EditorGUI.indentLevel = indent;
+            EditorGUI.EndProperty();
         }
 
 
