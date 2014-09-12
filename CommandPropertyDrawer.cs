@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
 using UnityEditorInternal;
@@ -17,7 +18,7 @@ namespace Invocation {
          * specified value property (eg. stringValue, intValue etc). Internally
          * the values are stored in an array of type T so we return a lambda
          * that tracks the current index we are up to each time it's called.
-         * 
+         *
          * @see Command for list of argument properties (stringArgs, intArgs
          * etc)
          *
@@ -26,7 +27,7 @@ namespace Invocation {
          * @param string propertyName the property that contains the value (eg.
          * stringValue, intValue, colorValue etc)
          * @param Func<Rect, T, T> f a function that creates a field, eg
-         * EditorGUI.TextField 
+         * EditorGUI.TextField
          *
          */
         static Func<Rect, string, SerializedProperty> ArgEditField<T>(SerializedProperty args, string propertyName, Func<Rect, string, T, T> f)
@@ -54,7 +55,7 @@ namespace Invocation {
         }
 
 
-        private GameObject getTarget(SerializedProperty property) 
+        private GameObject getTarget(SerializedProperty property)
         {
             var targetProperty = property.FindPropertyRelative("target");
             var obj = targetProperty.objectReferenceValue as GameObject;
@@ -136,7 +137,7 @@ namespace Invocation {
             if (selectedMethod != null) {
                 // Now we add edit fields for all parameters of selected method
                 var parameters = selectedMethod.GetParameters();
-                int objRefParamCount = 0, otherParamCount = 0;
+                int objRefParamCount = 0;
                 SerializedProperty stringArgs = property.FindPropertyRelative("stringArgs"),
                                    intArgs = property.FindPropertyRelative("intArgs"),
                                    colorArgs = property.FindPropertyRelative("colorArgs"),
@@ -155,7 +156,7 @@ namespace Invocation {
                         var argumentProperty = property.FindPropertyRelative(
                                 "objref_arg_"+(++objRefParamCount));
                         argumentProperty.objectReferenceValue = EditorGUI.ObjectField(
-                                valueRect, argumentProperty.objectReferenceValue, 
+                                valueRect, argumentProperty.objectReferenceValue,
                                 param.ParameterType, true);
                     } else {
                         var paramType = param.ParameterType;
@@ -195,3 +196,4 @@ namespace Invocation {
     }
 
 }
+#endif

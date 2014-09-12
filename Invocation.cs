@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEditor;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,7 +11,7 @@ namespace Invocation {
     public static class Extensions
     {
 
-        public static System.Reflection.MethodInfo GetBehaviourMethodByName(this GameObject obj, string name, out MonoBehaviour comp) 
+        public static System.Reflection.MethodInfo GetBehaviourMethodByName(this GameObject obj, string name, out MonoBehaviour comp)
         {
             var components = obj.GetComponents<MonoBehaviour>();
             foreach (var component in components) {
@@ -29,12 +28,22 @@ namespace Invocation {
             return null;
         }
 
-        public static System.Reflection.MethodInfo GetBehaviourMethodByName(this GameObject obj, string name) 
+        public static System.Reflection.MethodInfo GetBehaviourMethodByName(this GameObject obj, string name)
         {
             MonoBehaviour temp;
             return obj.GetBehaviourMethodByName(name,out temp);
         }
 
+    }
+
+
+    static class ArgIterator<T>
+    {
+        static int index= 0;
+
+        static public T next(T[] args) {
+            return args[index++];
+        }
     }
 
 
@@ -65,27 +74,12 @@ namespace Invocation {
 
         public int int_arg_1;
 
-        private Dictionary<System.Type, string> field_types = new Dictionary<System.Type, string>()
-        {
-            {typeof(UnityEngine.Object), "objref"},
-            {typeof(string), "value"},
-            {typeof(System.Int32), "value"}
-
-        };
-
         public Command() {}
-
-        static T ArgIterator<T>(T[] args)
-        {
-            int index = 0;
-            return args[index++];
-        }
 
         public void Invoke()
         {
             MonoBehaviour component;
             var methodInfo = target.GetBehaviourMethodByName(method, out component);
-            Debug.Log(methodInfo);
             if (methodInfo != null) {
                 var parameters = methodInfo.GetParameters();
                 var thisType = this.GetType();
@@ -104,34 +98,20 @@ namespace Invocation {
                     } else {
                         field_name = "value_arg_"+valuefield_count++;
                         if (paramType == typeof(string)) {
-                            value = ArgIterator<string>(stringArgs);
+                            value = ArgIterator<string>.next(stringArgs);
                         } else if (paramType == typeof(Color)) {
-                            value = ArgIterator<Color>(colorArgs);
+                            value = ArgIterator<Color>.next(colorArgs);
                         } else if (paramType == typeof(System.Int32)) {
-                            value = ArgIterator<int>(intArgs);
+                            value = ArgIterator<int>.next(intArgs);
                         } else if (paramType == typeof(Vector2)) {
-                            value = ArgIterator<Vector2>(vector2Args);
+                            value = ArgIterator<Vector2>.next(vector2Args);
                         } else {
                             value = null;
                         }
 
                     }
                     args[index++] = System.Convert.ChangeType(value, param.ParameterType);
-                    /*
-                    foreach (KeyValuePair<System.Type, string> field in field_types) {
-                        if (field.Key == param.ParameterType || param.ParameterType.IsSubclassOf(field.Key)) {
-                            string field_name = field.Value+"_arg_1";
-                            if (field_name == "int_arg_1") {
-                                Debug.Log(System.Convert.ChangeType(this.GetType().GetField("value_arg_2").GetValue(this), param.ParameterType));
-                            }
-                            Debug.Log(field_name);
-                            Debug.Log(this.GetType().GetField(field_name).GetValue(this));
-                        }
-                    }
-                    */
                 }
-                Debug.Log("SUMMON!");
-                Debug.Log(args);
                 methodInfo.Invoke(component, args);
             }
         }
