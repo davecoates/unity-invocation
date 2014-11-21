@@ -16,7 +16,7 @@ namespace Invocation {
             var components = obj.GetComponents<MonoBehaviour>();
             foreach (var component in components) {
                 var type = component.GetType();
-                var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
                 foreach (var method in methods) {
                     if (method.Name == name) {
                         comp = component;
